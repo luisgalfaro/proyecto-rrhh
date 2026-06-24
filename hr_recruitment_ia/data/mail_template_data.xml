@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- 1. Plantilla: Calificados -> Solo Entrevista -->
+        <record id="mail_template_applicant_calificado" model="mail.template">
+            <field name="name">1. Invitación a Entrevista Inicial</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Actualización sobre tu candidatura: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>¡Felicidades! Tu perfil nos ha parecido muy interesante para la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    <p>Nos gustaría invitarte a una primera entrevista para conocerte mejor.</p>
+    <t t-if="object.x_meeting_url">
+        <p>Por favor, únete a la reunión en la fecha acordada usando el siguiente enlace de videollamada:</p>
+        <p><br/><a t-att-href="object.x_meeting_url" style="background-color: #875A7B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Unirse a la Videollamada</a><br/><br/></p>
+    </t>
+    <t t-else="">
+        <p>Nos pondremos en contacto contigo a la brevedad para coordinar los detalles de la videollamada.</p>
+    </t>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 2. Plantilla: Entrevista / Prueba Técnica -> Videollamada y Examen -->
+        <record id="mail_template_applicant_prueba_tecnica" model="mail.template">
+            <field name="name">2. Invitación a Prueba Técnica</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Evaluación Técnica: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>Avanzando en el proceso para la vacante de <b><t t-out="object.job_id.name"/></b>, es momento de tu Prueba Técnica.</p>
+    
+    <t t-if="object.x_meeting_url">
+        <p>Durante la prueba, deberás conectarte a la siguiente videollamada con el reclutador:</p>
+        <p><a t-att-href="object.x_meeting_url" style="background-color: #875A7B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Unirse a la Videollamada</a></p>
+    </t>
+
+    <t t-if="object.x_url_antesala">
+        <p><b>Por favor, ingresa a tu Antesala Virtual en la fecha acordada usando este enlace único:</b></p>
+        <p><br/><a t-att-href="object.x_url_antesala" style="background-color: #007BFF; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Ir a mi Examen Técnico</a><br/><br/></p>
+    </t>
+    
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+        
+        <!-- 3. Plantilla: Prueba Psicométrica -> Solo Examen -->
+        <record id="mail_template_applicant_prueba_psicometrica" model="mail.template">
+            <field name="name">3. Invitación a Prueba Psicométrica</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Evaluación Psicométrica: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>¡Excelente trabajo en tu prueba técnica! Ahora te invitamos a realizar tu Prueba Psicométrica para la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    
+    <t t-if="object.x_url_antesala">
+        <p><b>Por favor, ingresa a tu Antesala Virtual usando este enlace único:</b></p>
+        <p><br/><a t-att-href="object.x_url_antesala" style="background-color: #28A745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Ir a mi Prueba Psicométrica</a><br/><br/></p>
+    </t>
+    
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 4. Plantilla de Correo para Candidatos Rechazados -->
+        <record id="mail_template_applicant_rechazado" model="mail.template">
+            <field name="name">Notificación de Rechazo (Automático)</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Actualización sobre tu candidatura: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>Agradecemos enormemente tu interés en la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    <p>Tras evaluar tu perfil, hemos determinado que en este momento tu experiencia no se alinea completamente con los requisitos que buscamos para esta posición.</p>
+    <blockquote style="border-left: 3px solid #ccc; margin-left: 0; padding-left: 10px; color: #555; white-space: pre-wrap;">
+        <i>"<t t-out="object.x_ia_analisis"/>"</i>
+    </blockquote>
+    <p>Guardaremos tu currículum para futuras oportunidades que se ajusten mejor a tu perfil.</p>
+    <p>Te deseamos mucho éxito en tu búsqueda profesional.</p>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 5. Plantilla de Correo para Invitación a Entrevista Final (Finalistas) -->
+        <record id="mail_template_applicant_entrevista_final" model="mail.template">
+            <field name="name">Invitación a Entrevista Final (VIP)</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Entrevista Final con Gerencia: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>¡Muchas felicidades! Has superado con gran éxito nuestras evaluaciones técnicas y psicométricas para la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    <p>Te encuentras en nuestra terna finalista. Queremos invitarte a una última entrevista de cierre con la Gerencia para conocerte mejor y platicar sobre los detalles estratégicos de la posición.</p>
+    <p>Por favor, confirma tu disponibilidad respondiendo a este correo para coordinar la fecha y hora exacta.</p>
+    <p>¡Mucho éxito en esta recta final!</p>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 6. Plantilla de Correo para Oferta de Contrato -->
+        <record id="mail_template_applicant_oferta_contrato" model="mail.template">
+            <field name="name">Notificación de Propuesta de Contrato</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">¡Felicidades! Propuesta formal de Contrato: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>Nos llena de entusiasmo informarte que has sido seleccionado como el candidato idóneo para ocupar la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    <p>Tu desempeño a lo largo de todas las pruebas y entrevistas (Puntaje global: <b><t t-out="round(object.x_score_total, 1)"/>%</b>) demostró el alto nivel técnico y humano que buscamos para nuestro equipo.</p>
+    <p>En el transcurso del día nos pondremos en contacto contigo para presentarte la oferta económica formal y acordar tu fecha de ingreso.</p>
+    <p>¡Estamos muy emocionados de darte la bienvenida a nuestro equipo!</p>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 7. Plantilla de Correo para Talent Pool (Reserva VIP) -->
+        <record id="mail_template_applicant_talent_pool" model="mail.template">
+            <field name="name">Notificación de Reserva en Talent Pool (Finalistas)</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">Agradecimiento especial y Talent Pool: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>Queremos agradecerte profundamente por tu destacada participación en el proceso de selección para la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
+    <p>Llegar a la terna finalista entre decenas de postulantes es un gran logro. Tu evaluación global combinada (Puntaje: <b><t t-out="round(object.x_score_total, 1)"/>%</b>) impresionó mucho a nuestro equipo técnico.</p>
+    <p>Aunque en esta ocasión nos hemos decantado por otro perfil para la posición actual, hemos clasificado tu currículum de manera exclusiva en nuestro <b>Pool de Talento Prioritario</b>.</p>
+    <p>Queremos conservar tus excelentes resultados para contactarte de forma directa y prioritaria en cuanto abramos una nueva vacante de desarrollo que se ajuste a tu alto nivel.</p>
+    <p>¡Te deseamos mucho éxito y seguimos en contacto!</p>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

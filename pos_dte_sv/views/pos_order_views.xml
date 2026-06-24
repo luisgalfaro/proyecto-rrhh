@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pos_order_form_inherit_dte_sv" model="ir.ui.view">
+        <field name="name">pos.order.form.inherit.dte.sv</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//header" position="inside">
+                <button name="action_invalidar_dte_wizard" 
+                        string="Invalidar DTE (MH)" 
+                        type="object" 
+                        class="btn-danger" 
+                        invisible="dte_status != 'exito'"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="DTE El Salvador" name="dte_el_salvador">
+                    <group>
+                        <group string="Estado del Documento">
+                            <field name="dte_status" widget="badge" 
+                                decoration-info="dte_status == 'pendiente'"
+                                decoration-success="dte_status == 'exito'"
+                                decoration-danger="dte_status == 'rechazado'"
+                                decoration-warning="dte_status == 'contingencia'"
+                                decoration-muted="dte_status == 'anulado'"/>
+                        </group>
+                        <group string="Datos del Ministerio de Hacienda">
+                            <field name="codigo_generacion"/>
+                            <field name="sello_recepcion"/>
+                            <field name="middleware_id" groups="base.group_no_one"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_pos_order_invalidar_wizard_form" model="ir.ui.view">
+        <field name="name">pos.order.invalidar.wizard.form</field>
+        <field name="model">pos.order.invalidar.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Invalidar Documento Electrónico (DTE)">
+                <group>
+                    <field name="pos_order_id" readonly="1" force_save="1"/>
+                    <field name="tipo_invalidacion" widget="radio"/>
+                    <field name="motivo_anulacion"/>
+                    <group string="Responsable de la Operación">
+                        <field name="nombre_responsable"/>
+                        <field name="doc_identidad_responsable"/>
+                    </group>
+                    <group string="Campos de Reemplazo">
+                        <field name="codigo_generacion_reemplazo" 
+                               placeholder="Obligatorio para tipo 1 y 3" 
+                               required="tipo_invalidacion in ['1', '3']"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_procesar_invalidacion" string="Efectuar Invalidación ante MH" type="object" class="btn-danger"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_partner_form_dte_sv" model="ir.ui.view">
+        <field name="name">res.partner.form.dte.sv</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='vat']" position="after">
+                <field name="nrc" placeholder="Ej: 123456-7" invisible="not is_company"/>
+                <field name="actividad_economica" placeholder="Ej: 10005" invisible="not is_company"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

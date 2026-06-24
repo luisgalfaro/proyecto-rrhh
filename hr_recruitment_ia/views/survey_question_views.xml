@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="survey_question_form_ia" model="ir.ui.view">
+        <field name="name">survey.question.form.ia</field>
+        <field name="model">survey.question</field>
+        <field name="inherit_id" ref="survey.survey_question_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Evaluación por Inteligencia Artificial" invisible="question_type not in ('text_box', 'char_box')">
+                    <group>
+                        <field name="x_ia_max_score"/>
+                        <field name="x_ia_expected_answer" placeholder="Ej. Debe mencionar el uso de bucles for, manejo de errores try-catch y optimización de memoria..."/>
+                    </group>
+                    <div class="alert alert-info" role="alert" invisible="x_ia_max_score == 0">
+                        <strong>¿Cómo funciona?</strong> Cuando el candidato responda esta pregunta, nuestro asistente de Inteligencia Artificial (Gemini) analizará su respuesta y la calificará de 0 a <field name="x_ia_max_score" nolabel="1" class="oe_inline font-weight-bold"/> puntos, basándose estrictamente en el Criterio de Evaluación que hayas definido arriba.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

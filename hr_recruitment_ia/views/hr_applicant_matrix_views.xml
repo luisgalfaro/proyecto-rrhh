@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista Tree para la Matriz de Decisión -->
+    <record id="hr_applicant_view_tree_matrix" model="ir.ui.view">
+        <field name="name">hr.applicant.tree.matrix</field>
+        <field name="model">hr.applicant</field>
+        <field name="arch" type="xml">
+            <list string="Matriz de Decisión Finalistas" decoration-success="x_score_total &gt;= 80" decoration-warning="x_score_total &lt; 80 and x_score_total &gt;= 70" default_order="x_score_total desc">
+                <field name="partner_name"/>
+                <field name="job_id"/>
+                <field name="stage_id"/>
+                <field name="x_ia_score" string="Filtro IA (%)" widget="progressbar"/>
+                <field name="x_score_tecnico" string="Prueba Técnica (%)" widget="progressbar"/>
+                <field name="x_score_psicometrico" string="Psicométrica (%)" widget="progressbar"/>
+                <field name="x_score_total" string="Puntaje Global" widget="progressbar" decoration-bf="1"/>
+                <button name="action_send_interview_invitation" type="object" string="Entrevistar" class="btn btn-sm btn-primary" icon="fa-video-camera"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Acción de Ventana para la Matriz -->
+    <record id="action_hr_applicant_matrix" model="ir.actions.act_window">
+        <field name="name">Matriz de Decisión</field>
+        <field name="res_model">hr.applicant</field>
+        <field name="view_mode">list,form</field>
+        <!-- Dominio: Solo mostrar si la nota final es mayor a 0 y están activos -->
+        <field name="domain">[('active', '=', True), ('x_score_total', '&gt;', 0)]</field>
+        <field name="view_id" ref="hr_recruitment_ia.hr_applicant_view_tree_matrix"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aún no hay candidatos en la matriz de decisión.
+            </p>
+            <p>
+                Los candidatos aparecerán aquí automáticamente una vez que obtengan puntajes en las pruebas y la IA.
+            </p>
+        </field>
+    </record>
+
+    <!-- Agregar el menú en el módulo de Reclutamiento -->
+    <menuitem id="menu_hr_applicant_matrix"
+              name="Matriz de Finalistas"
+              parent="hr_recruitment.menu_hr_recruitment_root"
+              action="action_hr_applicant_matrix"
+              sequence="5"/>
+</odoo>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_applicant_form_inherit_ia" model="ir.ui.view">
+        <field name="name">hr.applicant.form.inherit.ia</field>
+        <field name="model">hr.applicant</field>
+        <field name="inherit_id" ref="hr_recruitment.hr_applicant_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Botones manuales en el header -->
+            <xpath expr="//header" position="inside">
+                <field name="x_is_new_stage" invisible="1"/>
+                <field name="x_is_finalist_stage" invisible="1"/>
+                <button name="action_analizar_ia_manualmente" 
+                        string="Analizar con IA" 
+                        type="object" 
+                        class="oe_highlight"
+                        icon="fa-magic"
+                        invisible="not x_is_new_stage"/>
+                <button name="action_send_interview_invitation" 
+                        string="Enviar Invitación Entrevista" 
+                        type="object" 
+                        class="btn-secondary"
+                        icon="fa-envelope"/>
+                <button name="action_seleccionar_ganador" 
+                        string="Generar Oferta de Contrato" 
+                        type="object" 
+                        class="oe_highlight btn-success"
+                        icon="fa-trophy"
+                        invisible="not x_is_finalist_stage"/>
+            </xpath>
+            
+            <!-- Insertar una nueva pestaña (notebook page) dedicada al análisis de la IA -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Análisis de Inteligencia Artificial" name="ia_analysis">
+                    <group>
+                        <group string="Programación de Entrevista y Evaluación">
+                            <field name="x_fecha_examen"/>
+                            <field name="x_meeting_url" widget="url" placeholder="Ej. https://meet.google.com/..."/>
+                        </group>
+                        <group string="Control de Acceso (Antesala Web)">
+                            <field name="x_token_acceso"/>
+                            <field name="x_url_antesala" widget="url" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Resultados del Filtro Automatizado">
+                            <field name="x_ia_aprobado" widget="boolean_toggle"/>
+                            <field name="x_ia_score" widget="progressbar"/>
+                        </group>
+                        <group string="Matriz de Resultados Finales">
+                            <field name="x_score_tecnico" widget="progressbar"/>
+                            <field name="x_score_psicometrico" widget="progressbar"/>
+                            <field name="x_score_total" widget="progressbar"/>
+                        </group>
+                    </group>
+                    <separator string="Resumen Analítico del Currículum"/>
+                    <field name="x_ia_analisis" nolabel="1" placeholder="Esperando análisis de Gemini API..." style="width: 100% !important; min-height: 150px; font-size: 14px; line-height: 1.5; padding: 10px 0;"/>
+                </page>
+                <page string="Respuestas y Análisis IA" name="ia_answers_detailed">
+                    <style>
+                        .o_kanban_ia_answers .o_kanban_record {
+                            width: 100% !important;
+                            flex: 0 0 100% !important;
+                            display: block !important;
+                            margin-right: 0 !important;
+                            margin-bottom: 16px !important;
+                        }
+                    </style>
+                    <field name="x_ia_answer_ids" mode="kanban">
+                        <kanban create="false" delete="false" class="o_kanban_ia_answers">
+                            <field name="question"/>
+                            <field name="answer"/>
+                            <field name="expected_criteria"/>
+                            <field name="score"/>
+                            <field name="max_score"/>
+                            <field name="justification"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="oe_kanban_global_click oe_kanban_card w-100 mb-4 p-4 shadow-sm" style="flex: 1 1 100%; width: 100% !important; margin-right: 0 !important; border-radius: 12px; background: #ffffff; border: 1px solid #e0e0e0; border-left: 6px solid #00a09d !important; cursor: default;">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h4 class="font-weight-bold mb-0 col-9" style="font-size: 17px; color: #00a09d;">
+                                                <i class="fa fa-question-circle mr-2"/> <field name="question"/>
+                                            </h4>
+                                            <span class="badge font-weight-bold col-2" style="background-color: #28a745; color: white; padding: 6px 14px; font-size: 14px; border-radius: 20px;">
+                                                <field name="score"/> / <field name="max_score"/> pts
+                                            </span>
+                                        </div>
+                                        <div class="row mt-3 pt-3" style="border-top: 1px solid #f0f0f0;">
+                                            <div class="col-12">
+                                                <h6 class="font-weight-bold mb-2" style="color: #495057;"><i class="fa fa-robot mr-1"/> Análisis y Justificación IA:</h6>
+                                                <div class="p-3 text-dark" style="border-radius: 8px; background-color: #e8f4f8; border-left: 4px solid #17a2b8; font-size: 13px; white-space: pre-wrap;">
+                                                    <field name="justification"/>
+                                                </div>
+                                                <div class="mt-2 text-muted" style="font-size: 12px;">
+                                                    <strong>Criterio esperado:</strong> <field name="expected_criteria"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <form string="Detalle del Análisis IA">
+                            <sheet>
+                                <group>
+                                    <group>
+                                        <field name="question"/>
+                                        <field name="score"/>
+                                        <field name="max_score"/>
+                                    </group>
+                                    <group>
+                                        <field name="expected_criteria"/>
+                                    </group>
+                                </group>
+                                <group string="Respuesta del Candidato">
+                                    <field name="answer" nolabel="1"/>
+                                </group>
+                                <group string="Análisis y Justificación de la IA">
+                                    <field name="justification" nolabel="1"/>
+                                </group>
+                            </sheet>
+                        </form>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

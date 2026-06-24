@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="antesala_web_template" name="Antesala de Evaluación Técnica">
+        <t t-call="website.layout">
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container my-5 text-center">
+                    <div class="card shadow-lg p-5 border-0 bg-light" style="max-width: 700px; margin: 0 auto; border-radius: 15px;">
+                        <h1 class="text-primary mb-3">Antesala de Evaluación</h1>
+                        <p class="lead">Hola <strong><t t-out="applicant.partner_name"/></strong>, bienvenido al proceso de selección de <strong><t t-out="applicant.company_id.name"/></strong>.</p>
+                        
+                        <div class="alert alert-info my-4">
+                            <h5><i class="fa fa-video-camera"></i> Validación Humana</h5>
+                            <p>Antes o durante el examen, debes conectarte a la entrevista con el reclutador en este enlace:</p>
+                            <a t-att-href="link_reunion" target="_blank" class="btn btn-outline-info btn-sm">Unirse a la Videollamada</a>
+                        </div>
+
+                        <div id="timer_block" class="my-4">
+                            <h4 class="text-muted">El examen se desbloqueará en:</h4>
+                            <div id="countdown" class="display-4 font-weight-bold text-danger">00:00:00</div>
+                        </div>
+
+                        <div class="mt-4">
+                            <a id="btn_iniciar" t-att-href="url_encuesta" class="btn btn-success btn-lg d-none" style="border-radius: 30px; padding: 12px 40px;">
+                                <i class="fa fa-pencil-square-o"></i> Iniciar Mi Evaluación Ahora
+                            </a>
+                            <p id="txt_espera" class="text-warning font-italic">Por favor, espera a que el contador llegue a cero para desbloquear el examen.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <script type="text/javascript">
+                    document.addEventListener("DOMContentLoaded", function() {
+                        // 1. Lógica del Contador Regresivo
+                        const fechaExamenStr = "<t t-out='fecha_examen_iso'/>";
+                        let targetDate = new Date(fechaExamenStr).getTime();
+                        if (isNaN(targetDate)) {
+                            targetDate = new Date(fechaExamenStr + "Z").getTime();
+                        }
+                        
+                        const countdownInterval = setInterval(function() {
+                            const now = new Date().getTime();
+                            const distance = targetDate - now;
+                            
+                            if (distance &lt;= 0) {
+                                clearInterval(countdownInterval);
+                                document.getElementById("countdown").innerHTML = "¡TIEMPO CUMPLIDO!";
+                                document.getElementById("countdown").classList.replace("text-danger", "text-success");
+                                document.getElementById("btn_iniciar").classList.remove("d-none");
+                                document.getElementById("txt_espera").classList.add("d-none");
+                                activarAntiFraude(); // Activar seguridad al iniciar
+                            } else {
+                                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                                
+                                document.getElementById("countdown").innerHTML = 
+                                    (hours &lt; 10 ? "0" : "") + hours + ":" + 
+                                    (minutes &lt; 10 ? "0" : "") + minutes + ":" + 
+                                    (seconds &lt; 10 ? "0" : "") + seconds;
+                            }
+                        }, 1000);
+
+                        // 2. Lógica Anti-Fraude (Vigilancia del Foco de la Pestaña)
+                        let advertencias = 0;
+                        function activarAntiFraude() {
+                            document.addEventListener("visibilitychange", function() {
+                                if (document.hidden) {
+                                    advertencias++;
+                                    alert("ADVERTENCIA #" + advertencias + ": No tienes permitido salir de la pestaña del examen. Esta acción quedará registrada.");
+                                    if (advertencias >= 3) {
+                                        alert("Has superado el límite de advertencias permitidas. Tu examen será cerrado.");
+                                        // Redirección para cerrar el examen si ya está dentro
+                                        window.location.href = "/survey/submit"; 
+                                    }
+                                }
+                            });
+                        }
+                    });
+                </script>
+            </div>
+        </t>
+    </template>
+
+    <!-- Spinner de Carga Global para Encuestas (Al presionar Finalizar/Enviar) -->
+    <template id="survey_layout_inherit_spinner" inherit_id="survey.layout" name="Survey Layout Inherit Spinner">
+        <xpath expr="//div[@id='wrapwrap']" position="inside">
+            <!-- Overlay flotante de carga (Oculto por defecto) -->
+            <div id="survey_ia_loading_overlay" class="d-none" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.88); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; backdrop-filter: blur(8px);">
+                <div class="spinner-border text-success" style="width: 5rem; height: 5rem; margin-bottom: 25px;" role="status">
+                    <span class="sr-only">Cargando...</span>
+                </div>
+                <h2 class="font-weight-bold display-5">Procesando Examen con Inteligencia Artificial</h2>
+                <p class="lead mt-3" style="max-width: 650px; padding: 0 20px; font-size: 1.25rem;">
+                    Por favor, <strong>NO cierres ni recargues esta pestaña</strong>. Estamos guardando tus respuestas y ejecutando el análisis automatizado de Gemini. Si sales ahora, tu examen podría ser anulado por seguridad.
+                </p>
+            </div>
+
+            <script type="text/javascript">
+                document.addEventListener("DOMContentLoaded", function() {
+                    // Escuchar a nivel global los clics en el botón 'Enviar' dentro del modal de confirmación final de Odoo
+                    document.addEventListener("click", function(ev) {
+                        const btn = ev.target.closest('button');
+                        if (!btn) return;
+                        
+                        // Verificar si el botón está dentro del cuadro de diálogo (pop-up modal) de confirmación final
+                        const isModal = btn.closest('.modal, .o_dialog, .modal-dialog');
+                        if (isModal &amp;&amp; (btn.classList.contains('btn-primary') || btn.classList.contains('o_confirm'))) {
+                            const overlay = document.getElementById('survey_ia_loading_overlay');
+                            if (overlay) overlay.classList.remove('d-none');
+                        }
+                    });
+
+                    // Observar cambios en el DOM para ocultar el spinner en cuanto Odoo complete la petición AJAX y cargue la pantalla final
+                    const wrap = document.getElementById('wrapwrap');
+                    if (wrap) {
+                        const observer = new MutationObserver(function(mutations) {
+                            // Verificar si apareció la pantalla de encuesta finalizada o si desapareció el formulario
+                            const isFinished = document.querySelector('.o_survey_finished, .o_survey_completed');
+                            const formExists = document.querySelector('form');
+                            if (isFinished || !formExists) {
+                                const overlay = document.getElementById('survey_ia_loading_overlay');
+                                if (overlay &amp;&amp; !overlay.classList.contains('d-none')) {
+                                    overlay.classList.add('d-none');
+                                }
+                            }
+                        });
+                        observer.observe(wrap, { childList: true, subtree: true });
+                    }
+                });
+            </script>
+        </xpath>
+    </template>
+
+    <!-- Mensaje y Spinner de Análisis de CV en el formulario de aplicación -->
+    <template id="apply_job_inherit_ia_message" inherit_id="website_hr_recruitment.apply" name="Apply Job Inherit IA Message">
+        <xpath expr="//div[@id='wrap']" position="inside">
+            <!-- Overlay flotante de carga para CV (Oculto por defecto) -->
+            <div id="cv_ia_loading_overlay" class="d-none" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.88); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; backdrop-filter: blur(8px);">
+                <div class="spinner-border text-info" style="width: 5rem; height: 5rem; margin-bottom: 25px;" role="status">
+                    <span class="sr-only">Analizando CV...</span>
+                </div>
+                <h2 class="font-weight-bold display-5">Analizando tu Currículum con Inteligencia Artificial</h2>
+                <p class="lead mt-3" style="max-width: 650px; padding: 0 20px; font-size: 1.25rem;">
+                    Por favor, <strong>NO cierres ni recargues esta página</strong>. Nuestra Inteligencia Artificial está leyendo y evaluando tu experiencia y habilidades en tiempo real para asignarte a la etapa correcta.
+                </p>
+            </div>
+
+            <script type="text/javascript">
+                document.addEventListener("DOMContentLoaded", function() {
+                    function checkFormSubmits() {
+                        const forms = document.querySelectorAll('form, form[action*="/website_form/"]');
+                        forms.forEach(form => {
+                            form.addEventListener('submit', function() {
+                                document.getElementById('cv_ia_loading_overlay').classList.remove('d-none');
+                            });
+                        });
+
+                        const submitBtns = document.querySelectorAll('.o_website_form_send, button[type="submit"]');
+                        submitBtns.forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const form = this.closest('form');
+                                if (!form || form.checkValidity()) {
+                                    document.getElementById('cv_ia_loading_overlay').classList.remove('d-none');
+                                }
+                            });
+                        });
+                    }
+
+                    checkFormSubmits();
+                });
+            </script>
+        </xpath>
+    </template>
+</odoo>

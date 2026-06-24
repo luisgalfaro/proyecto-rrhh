@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_job_form_inherit_ia" model="ir.ui.view">
+        <field name="name">hr.job.form.inherit.ia</field>
+        <field name="model">hr.job</field>
+        <field name="inherit_id" ref="hr.view_hr_job_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Análisis IA" name="ia_keywords">
+                    <group string="Evaluaciones de los Candidatos">
+                        <field name="x_encuesta_tecnica_id"/>
+                        <field name="x_encuesta_psicometrica_id"/>
+                    </group>
+                    <group>
+                        <field name="x_keywords_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': False}" placeholder="Ej. Python, React, PostgreSQL..."/>
+                    </group>
+                    <p class="text-muted">
+                        Estas palabras clave se enviarán a la IA de Gemini para evaluar si el candidato cumple con el perfil técnico mínimo.
+                    </p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

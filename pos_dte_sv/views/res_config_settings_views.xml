@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_dte_sv" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.pos.dte.sv</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//block[@id='pos_accounting_section']" position="after">
+                <block title="Facturación Electrónica El Salvador (DTE)" id="pos_dte_sv_section">
+                    
+                    <setting string="Modo Simulación" help="Activa esto para probar sin enviar datos a Hacienda.">
+                        <field name="dte_modo_simulacion"/>
+                        <div class="text-muted">
+                            Simular respuestas exitosas de la API
+                        </div>
+                    </setting>
+
+                    <setting string="Credenciales DTE" help="Configura tu acceso a la API">
+                        <div class="content-group">
+                            <div class="mt16">
+                                <label for="dte_api_url" string="URL API"/>
+                                <field name="dte_api_url" class="o_light_label" widget="url"/>
+                            </div>
+                            <div class="mt8">
+                                <label for="dte_usuario" string="Usuario"/>
+                                <field name="dte_usuario" class="o_light_label"/>
+                            </div>
+                            <div class="mt8">
+                                <label for="dte_password" string="Contraseña"/>
+                                <field name="dte_password" class="o_light_label" password="True"/>
+                            </div>
+                        </div>
+                    </setting>
+
+                </block>
+            </xpath>
+
+        </field>
+    </record>
+</odoo> 

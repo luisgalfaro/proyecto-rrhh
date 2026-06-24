@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <!-- 1. Ocultar la línea de propina de la lista principal en el recibo -->
+    <t t-name="pos_dte_sv.OrderlineTip" t-inherit="point_of_sale.Orderline" t-inherit-mode="extension" owl="1">
+        <xpath expr="//li[hasclass('orderline')]" position="attributes">
+            <attribute name="t-attf-style" add="{{ props.mode === 'receipt' and (vals.name.toUpperCase() === 'PROPINA' or vals.name.toUpperCase().includes('PROPINA')) ? 'display: none !important;' : '' }}" separator=" "/>
+        </xpath>
+    </t>
+
+    <!-- 2. Mostrar la propina desglosada justo antes de los impuestos y total -->
+    <t t-name="pos_dte_sv.OrderReceiptTip" t-inherit="point_of_sale.OrderReceipt" t-inherit-mode="extension" owl="1">
+        <xpath expr="//div[hasclass('pos-receipt-taxes')] | //div[hasclass('pos-receipt-amount')][1]" position="before">
+            <t t-if="order.tip_amount">
+                <div class="pos-receipt-right-align">--------</div>
+                
+                <!-- Subtotal sin propina -->
+                <div class="d-flex">
+                    <span class="text-nowrap mw-100">Subtotal (sin propina)</span>
+                    <span t-out="formatCurrency((order.priceIncl || 0) - order.tip_amount)" class="ms-auto font-monospace"/>
+                </div>
+                
+                <!-- Propina desglosada -->
+                <div class="d-flex">
+                    <span class="text-nowrap mw-100">Propina (10%)</span>
+                    <span t-out="formatCurrency(order.tip_amount)" class="ms-auto font-monospace"/>
+                </div>
+            </t>
+        </xpath>
+    </t>
+</templates>
