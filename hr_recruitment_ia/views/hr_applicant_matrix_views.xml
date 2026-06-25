@@ -13,7 +13,6 @@
                 <field name="x_score_tecnico" string="Prueba Técnica (%)" widget="progressbar"/>
                 <field name="x_score_psicometrico" string="Psicométrica (%)" widget="progressbar"/>
                 <field name="x_score_total" string="Puntaje Global" widget="progressbar" decoration-bf="1"/>
-                <button name="action_send_interview_invitation" type="object" string="Entrevistar" class="btn btn-sm btn-primary" icon="fa-video-camera"/>
             </list>
         </field>
     </record>

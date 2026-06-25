@@ -30,6 +30,19 @@
             
             <!-- Insertar una nueva pestaña (notebook page) dedicada al análisis de la IA -->
             <xpath expr="//notebook" position="inside">
+                <page string="Propuesta y Contratación" name="propuesta_contratacion" invisible="not x_is_finalist_stage">
+                    <group>
+                        <group string="Oferta Económica Formal">
+                            <field name="x_oferta_salario"/>
+                            <field name="x_oferta_moneda_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="x_oferta_bonos"/>
+                            <field name="x_oferta_fecha_inicio"/>
+                        </group>
+                        <group string="Información para Onboarding">
+                            <field name="x_oferta_condiciones" placeholder="Detalla aquí herramientas a entregar (Laptop, Accesos), inducción inicial y condiciones del período de prueba (3-6 meses)..." style="min-height: 120px;"/>
+                        </group>
+                    </group>
+                </page>
                 <page string="Análisis de Inteligencia Artificial" name="ia_analysis">
                     <group>
                         <group string="Programación de Entrevista y Evaluación">

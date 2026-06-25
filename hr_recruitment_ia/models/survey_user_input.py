@@ -45,7 +45,32 @@ class SurveyUserInput(models.Model):
             return
             
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.5-flash')
+        
+        # Obtener dinámicamente la lista de modelos compatibles disponibles en esta cuenta/SDK
+        available_models = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    model_name = m.name.replace('models/', '')
+                    available_models.append(model_name)
+        except Exception as e:
+            _logger.warning(f"No se pudo obtener lista de modelos de Gemini en encuestas: {str(e)}")
+
+        # Definir orden de preferencia de modelos, priorizando los que realmente existen y tienen cuota activa (flash-lite)
+        preferred_order = [
+            'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 
+            'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-pro-latest', 'gemini-3.5-flash'
+        ]
+        
+        models_to_try = [m for m in preferred_order if m in available_models]
+        if not models_to_try and available_models:
+            models_to_try = available_models[:3]
+        elif not models_to_try:
+            models_to_try = preferred_order
+            
+        active_model_name = models_to_try[0]
+        _logger.info(f"Evaluando encuesta con modelo activo: {active_model_name}")
+        model = genai.GenerativeModel(active_model_name)
         
         # Tomar TODAS las preguntas abiertas (tengan o no max_score configurado en la encuesta)
         lines_to_evaluate = user_input.user_input_line_ids.filtered(
@@ -119,14 +144,15 @@ class SurveyUserInput(models.Model):
                             break
                             
                 if not exito:
-                    # Fallback de emergencia si Gemini sigue bloqueado por cuota para no perjudicar al candidato
-                    puntos = max_score
-                    justificacion = "Evaluación automática por contingencia: La API de Gemini superó el límite de cuota gratuita (Error 429). Se otorgan los puntos completos por defecto para no perjudicar al candidato."
-                    applicant.message_post(body=f"<b style='color:orange;'>Aviso IA ('{pregunta}'):</b> Se asignó puntaje completo por contingencia de Cuota API (429).")
+                    # Fallback de emergencia: Permitir calificación manual por parte del seleccionador
+                    puntos = 0.0
+                    justificacion = "⚠️ PENDIENTE DE CALIFICACIÓN MANUAL: La IA no pudo evaluar esta respuesta por límite de cuota (429). Por favor, lea la respuesta del candidato y asigne el puntaje manualmente."
+                    applicant.message_post(body=f"<b style='color:red;'>🚨 Alerta de Encuesta ('{pregunta}'):</b> La evaluación automática por IA falló por cuota (429). El examen está pendiente de revisión y calificación manual por parte del seleccionador.")
 
                 # Crear registro detallado para la nueva pestaña (notebook) en el candidato (sin manchar el chatter)
                 self.env['hr.applicant.ia.answer'].sudo().create({
                     'applicant_id': applicant.id,
+                    'user_input_line_id': line.id,
                     'question': pregunta,
                     'answer': respuesta,
                     'expected_criteria': criterio,
@@ -140,6 +166,7 @@ class SurveyUserInput(models.Model):
             else:
                 self.env['hr.applicant.ia.answer'].sudo().create({
                     'applicant_id': applicant.id,
+                    'user_input_line_id': line.id,
                     'question': pregunta,
                     'answer': "(En blanco)",
                     'expected_criteria': criterio,
@@ -178,3 +205,46 @@ class SurveyUserInput(models.Model):
         
         # Enviar al flujo
         applicant._procesar_resultado_encuesta(user_input, score=final_percentage)
+
+    def _recalculate_combined_score(self, applicant):
+        self = self.sudo()
+        applicant = applicant.sudo()
+        
+        # Recalcular puntos IA obtenidos y máximos desde las respuestas guardadas en hr.applicant.ia.answer
+        ia_answers = applicant.x_ia_answer_ids
+        puntos_ia_obtenidos = sum(ia_answers.mapped('score'))
+        puntos_ia_maximos = sum(ia_answers.mapped('max_score'))
+        
+        # Puntos nativos (opción múltiple/cerradas)
+        closed_lines = self.user_input_line_ids.filtered(lambda l: l.question_id.question_type not in ('text_box', 'char_box'))
+        native_score = sum(closed_lines.mapped('answer_score'))
+        
+        native_max = 0.0
+        for q in self.survey_id.question_ids:
+            if q.is_scored_question and q.question_type not in ('text_box', 'char_box'):
+                if q.question_type == 'simple_choice':
+                    max_q = max(q.suggested_answer_ids.mapped('answer_score') or [0.0])
+                    native_max += max_q if max_q > 0 else 0
+                elif q.question_type == 'multiple_choice':
+                    native_max += sum([s for s in q.suggested_answer_ids.mapped('answer_score') if s > 0])
+                elif q.question_type in ('numerical_box', 'date', 'datetime'):
+                    native_max += q.answer_score
+
+        total_obtenido = native_score + puntos_ia_obtenidos
+        total_maximo = native_max + puntos_ia_maximos
+        
+        if total_maximo > 0:
+            final_percentage = (total_obtenido / total_maximo) * 100
+        else:
+            final_percentage = self.scoring_percentage or 0.0
+            
+        final_percentage = min(final_percentage, 100.0)
+        
+        # Si el candidato estaba inactivo (rechazado) pero el seleccionador le subió la nota manualmente para aprobarlo:
+        passing_score = self.survey_id.scoring_success_min if self.survey_id.scoring_type != 'no_scoring' else 70.0
+        if final_percentage >= passing_score and not applicant.active:
+            # Reabrir al candidato y devolverlo a la etapa activa
+            applicant.write({'active': True})
+            applicant.message_post(body=f"<b style='color:green;'>⭐ Aprobación por Calificación Manual:</b> El seleccionador actualizó la nota a {final_percentage:.1f}% (Mínimo {passing_score}%). Candidato reactivado con éxito.")
+            
+        applicant._procesar_resultado_encuesta(self, score=final_percentage)

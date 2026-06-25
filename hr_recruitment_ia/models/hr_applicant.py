@@ -36,6 +36,13 @@ class HrApplicant(models.Model):
     x_fecha_examen = fields.Datetime(string="Fecha y Hora del Examen", help="Zona horaria del servidor")
     x_url_antesala = fields.Char(string="Enlace de la Antesala Web", compute="_compute_url_antesala")
     
+    # Campos de Oferta Laboral, Contratación y Onboarding
+    x_oferta_salario = fields.Float(string="Salario Mensual Ofertado")
+    x_oferta_moneda_id = fields.Many2one('res.currency', string="Moneda", default=lambda self: self.env.company.currency_id)
+    x_oferta_bonos = fields.Char(string="Bonos y Beneficios Adicionales", placeholder="Ej. Seguro de Gastos Médicos, Bonos de Despensa")
+    x_oferta_fecha_inicio = fields.Date(string="Fecha de Ingreso Propuesta")
+    x_oferta_condiciones = fields.Text(string="Términos y Condiciones Adicionales")
+    
     x_is_new_stage = fields.Boolean(compute='_compute_stage_flags', string='Es Etapa Nuevo')
     x_is_finalist_stage = fields.Boolean(compute='_compute_stage_flags', string='Es Etapa Finalista')
 
@@ -135,8 +142,30 @@ class HrApplicant(models.Model):
         }}
         """
 
-        # Lista de modelos de respaldo: Empezamos con 1.5-flash (1,500 peticiones/día gratis) y respaldamos con 3.5-flash y 1.5-pro
-        models_to_try = ['gemini-1.5-flash', 'gemini-3.5-flash', 'gemini-1.5-pro']
+        # Obtener dinámicamente la lista de modelos compatibles disponibles en esta cuenta/SDK
+        available_models = []
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    # Limpiar el prefijo 'models/' si existe
+                    model_name = m.name.replace('models/', '')
+                    available_models.append(model_name)
+            _logger.info(f"Modelos de Gemini disponibles en la API: {available_models}")
+        except Exception as e:
+            _logger.warning(f"No se pudo obtener lista de modelos de Gemini: {str(e)}")
+
+        # Definir orden de preferencia de modelos, priorizando los que realmente existen y tienen cuota activa
+        preferred_order = [
+            'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 
+            'gemini-2.5-flash', 'gemini-3.1-flash-lite', 'gemini-pro-latest', 'gemini-3.5-flash'
+        ]
+        
+        models_to_try = [m for m in preferred_order if m in available_models]
+        if not models_to_try and available_models:
+            models_to_try = available_models[:3]  # Tomar los primeros 3 disponibles si ninguno coincide
+        elif not models_to_try:
+            models_to_try = preferred_order  # Fallback a la lista fija si list_models falló
+            
         last_error = None
         
         for model_name in models_to_try:
@@ -297,6 +326,11 @@ class HrApplicant(models.Model):
             # Analizar con Gemini
             self._analyze_cv_with_gemini(applicant, cv_text)
 
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
+
     @api.depends('x_score_tecnico', 'x_score_psicometrico', 'x_ia_score')
     def _compute_score_total(self):
         for app in self:
@@ -359,28 +393,6 @@ class HrApplicant(models.Model):
                 stage_final = self.env['hr.recruitment.stage'].search(['|', ('name', 'ilike', 'Finalist'), ('name', 'ilike', 'Final')], limit=1)
                 if stage_final:
                     self.stage_id = stage_final.id
-
-class IrAttachment(models.Model):
-    _inherit = 'ir.attachment'
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        # Primero crear los adjuntos
-        attachments = super(IrAttachment, self).create(vals_list)
-        
-        # Procesar si alguno es un CV de un candidato
-        for attachment in attachments:
-            if attachment.res_model == 'hr.applicant' and attachment.mimetype == 'application/pdf':
-                applicant = self.env['hr.applicant'].browse(attachment.res_id)
-                # Si el candidato existe y aún no ha sido analizado por IA
-                if applicant.exists() and not applicant.x_ia_analisis:
-                    try:
-                        # Ejecutar el análisis automáticamente
-                        applicant.action_analizar_ia_manualmente()
-                    except Exception as e:
-                        _logger.error(f"Error procesando IA automáticamente tras adjuntar CV: {str(e)}")
-                        
-        return attachments
 
 class TalentPoolAddApplicants(models.TransientModel):
     _inherit = 'talent.pool.add.applicants'
