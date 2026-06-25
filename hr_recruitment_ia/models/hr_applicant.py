@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import uuid
+import time
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -134,45 +135,56 @@ class HrApplicant(models.Model):
         }}
         """
 
-        try:
-            # Invocar el modelo flash de Gemini 
-            model = genai.GenerativeModel('gemini-3.5-flash')
-            response = model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
-            )
-            
-            # Parsear la respuesta estructurada
-            result = json.loads(response.text)
-            
-            # Guardar los datos analíticos en la ficha del candidato
-            applicant.write({
-                'x_ia_aprobado': result.get('aprobado', False),
-                'x_ia_score': result.get('score_coincidencia', 0.0),
-                'x_ia_analisis': result.get('analisis_resumen', '')
-            })
-
-            # 4. Acción automatizada basada en la decisión de la IA
-            if result.get('aprobado'):
-                # Mover a la etapa de "Calificados" (Asegúrate de que el nombre o ID coincida en tu base de datos)
-                stage_calificado = self.env['hr.recruitment.stage'].search([('name', 'ilike', 'Calificados')], limit=1)
-                if stage_calificado:
-                    applicant.write({'stage_id': stage_calificado.id})
-            else:
-                # Buscar etapa "Rechazados" (Sensible a "Rechazad")
-                stage_rechazado = self.env['hr.recruitment.stage'].search([('name', 'ilike', 'Rechazad')], limit=1)
-                if stage_rechazado:
-                    applicant.write({'stage_id': stage_rechazado.id, 'active': False})
-                else:
-                    applicant.write({'active': False})
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Invocar el modelo flash de Gemini 
+                model = genai.GenerativeModel('gemini-3.5-flash')
+                response = model.generate_content(
+                    prompt,
+                    generation_config={"response_mime_type": "application/json"}
+                )
                 
-                # Enviar correo de rechazo automáticamente usando la plantilla XML
-                template = self.env.ref('hr_recruitment_ia.mail_template_applicant_rechazado', raise_if_not_found=False)
-                if template:
-                    template.send_mail(applicant.id, force_send=False)
+                # Parsear la respuesta estructurada
+                result = json.loads(response.text)
+                
+                # Guardar los datos analíticos en la ficha del candidato
+                applicant.write({
+                    'x_ia_aprobado': result.get('aprobado', False),
+                    'x_ia_score': result.get('score_coincidencia', 0.0),
+                    'x_ia_analisis': result.get('analisis_resumen', '')
+                })
 
-        except Exception as e:
-            _logger.error(f"Error en la llamada a la API de Gemini: {str(e)}")
+                # 4. Acción automatizada basada en la decisión de la IA
+                if result.get('aprobado'):
+                    # Mover a la etapa de "Calificados" (Asegúrate de que el nombre o ID coincida en tu base de datos)
+                    stage_calificado = self.env['hr.recruitment.stage'].search([('name', 'ilike', 'Calificados')], limit=1)
+                    if stage_calificado:
+                        applicant.write({'stage_id': stage_calificado.id})
+                else:
+                    # Buscar etapa "Rechazados" (Sensible a "Rechazad")
+                    stage_rechazado = self.env['hr.recruitment.stage'].search([('name', 'ilike', 'Rechazad')], limit=1)
+                    if stage_rechazado:
+                        applicant.write({'stage_id': stage_rechazado.id, 'active': False})
+                    else:
+                        applicant.write({'active': False})
+                    
+                    # Enviar correo de rechazo automáticamente usando la plantilla XML
+                    template = self.env.ref('hr_recruitment_ia.mail_template_applicant_rechazado', raise_if_not_found=False)
+                    if template:
+                        template.send_mail(applicant.id, force_send=False)
+                break  # Salir del bucle si fue exitoso
+            except Exception as e:
+                if '429' in str(e) and attempt < max_retries - 1:
+                    _logger.warning(f"Límite de cuota Gemini (429) alcanzado al analizar CV. Esperando 23 segundos antes del intento {attempt + 2}...")
+                    time.sleep(23)
+                else:
+                    _logger.error(f"Error en la llamada a la API de Gemini tras {attempt + 1} intentos: {str(e)}")
+                    # Guardar un mensaje claro de fallback en la ficha para que el usuario no se quede sin saber qué pasó
+                    applicant.write({
+                        'x_ia_analisis': f"Error al evaluar con Gemini API (Cuota excedida o servicio no disponible). Por favor, intenta presionar 'Analizar con IA' nuevamente en unos segundos.\n\nDetalle técnico: {str(e)}"
+                    })
+                    break
 
     def action_send_interview_invitation(self):
         """Envía manualmente la invitación usando la plantilla correcta según la etapa del Kanban."""
