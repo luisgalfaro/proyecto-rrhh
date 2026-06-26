@@ -12,8 +12,11 @@
     <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
     <p>¡Felicidades! Tu perfil nos ha parecido muy interesante para la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
     <p>Nos gustaría invitarte a una primera entrevista para conocerte mejor.</p>
+    <t t-if="object.x_fecha_examen">
+        <p><b>📅 Fecha y Hora programada:</b> <t t-out="object.x_fecha_examen"/></p>
+    </t>
     <t t-if="object.x_meeting_url">
-        <p>Por favor, únete a la reunión en la fecha acordada usando el siguiente enlace de videollamada:</p>
+        <p>Por favor, únete a la reunión en la fecha y hora descrita usando el siguiente enlace de videollamada:</p>
         <p><br/><a t-att-href="object.x_meeting_url" style="background-color: #875A7B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Unirse a la Videollamada</a><br/><br/></p>
     </t>
     <t t-else="">
@@ -81,9 +84,9 @@
 <div style="font-family: Arial, sans-serif; font-size: 14px;">
     <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
     <p>Agradecemos enormemente tu interés en la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
-    <p>Tras evaluar tu perfil, hemos determinado que en este momento tu experiencia no se alinea completamente con los requisitos que buscamos para esta posición.</p>
+    <p>Tras evaluar tu perfil y resultados, hemos determinado que en este momento tu perfil no se alinea completamente con los requisitos que buscamos para esta posición.</p>
     <blockquote style="border-left: 3px solid #ccc; margin-left: 0; padding-left: 10px; color: #555; white-space: pre-wrap;">
-        <i>"<t t-out="object.x_ia_analisis"/>"</i>
+        <i>"<t t-out="object.x_examen_feedback or object.x_ia_analisis"/>"</i>
     </blockquote>
     <p>Guardaremos tu currículum para futuras oportunidades que se ajusten mejor a tu perfil.</p>
     <p>Te deseamos mucho éxito en tu búsqueda profesional.</p>
@@ -120,42 +123,63 @@
             </field>
         </record>
 
-        <!-- 6. Plantilla de Correo para Oferta de Contrato -->
-        <record id="mail_template_applicant_oferta_contrato" model="mail.template">
-            <field name="name">Notificación de Propuesta de Contrato</field>
+        <!-- 5.5. Plantilla de Correo: Aviso de que es finalista seleccionado (Previo a Oferta) -->
+        <record id="mail_template_applicant_ganador_aviso" model="mail.template">
+            <field name="name">Aviso de Finalista Seleccionado (Pre-Oferta)</field>
             <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
-            <field name="subject">¡Felicidades! Propuesta formal de Contrato: {{ object.job_id.name }}</field>
+            <field name="subject">¡Felicidades! Has sido seleccionado para la vacante: {{ object.job_id.name }}</field>
             <field name="email_to">{{ object.email_from }}</field>
             <field name="body_html" type="html">
 <div style="font-family: Arial, sans-serif; font-size: 14px;">
     <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
-    <p>Nos llena de entusiasmo informarte que has sido seleccionado como el candidato idóneo para ocupar la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
-    <p>Tu desempeño a lo largo de todas las pruebas y entrevistas (Puntaje global: <b><t t-out="round(object.x_score_total, 1)"/>%</b>) demostró el alto nivel técnico y humano que buscamos para nuestro equipo.</p>
+    <p>Tras concluir con todas las entrevistas de nuestra terna finalista, nos llena de orgullo y entusiasmo informarte que <b>¡has sido seleccionado como el candidato idóneo para ocupar la vacante de <t t-out="object.job_id.name"/>!</b></p>
+    <p>Tu desempeño a lo largo de todo el proceso (Puntaje global: <b><t t-out="round(object.x_score_total, 1)"/>%</b>) demostró el alto nivel técnico y humano que buscamos para nuestra organización.</p>
+    <p>En el transcurso del día nos pondremos en contacto contigo por este medio para enviarte la propuesta económica formal, así como las instrucciones de fecha y hora para la firma de tu contrato.</p>
+    <p>¡Muchas felicidades y estamos muy emocionados de que formes parte de nuestro equipo!</p>
+    <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
+</div>
+            </field>
+        </record>
+
+        <!-- 6. Plantilla de Correo para Oferta de Contrato y Citatorio de Firma -->
+        <record id="mail_template_applicant_oferta_contrato" model="mail.template">
+            <field name="name">Notificación de Propuesta de Contrato y Citatorio</field>
+            <field name="model_id" ref="hr_recruitment.model_hr_applicant"/>
+            <field name="subject">¡Felicidades! Propuesta formal de Contrato y Citatorio de Firma: {{ object.job_id.name }}</field>
+            <field name="email_to">{{ object.email_from }}</field>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, sans-serif; font-size: 14px;">
+    <p>Hola <t t-out="object.partner_name or 'Candidato'"/>,</p>
+    <p>Como seguimiento a nuestra comunicación anterior, nos complace presentarte de manera formal nuestra propuesta económica y las instrucciones exactas para tu contratación en la vacante de <b><t t-out="object.job_id.name"/></b>.</p>
     
     <h3 style="color: #00a09d; margin-top: 20px;">Propuesta Económica y Condiciones</h3>
     <table style="border-collapse: collapse; width: 100%; margin-bottom: 20px; font-size: 14px;">
         <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px 0; font-weight: bold; width: 40%;">Salario Ofertado:</td>
+            <td style="padding: 10px 0; font-weight: bold; width: 40%;">Salario Mensual Ofertado:</td>
             <td style="padding: 10px 0;"><t t-out="object.x_oferta_salario or 'Por definir'"/> <t t-out="object.x_oferta_moneda_id.name or ''"/></td>
         </tr>
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 10px 0; font-weight: bold;">Bonos / Beneficios:</td>
             <td style="padding: 10px 0;"><t t-out="object.x_oferta_bonos or 'Beneficios superiores de ley'"/></td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px 0; font-weight: bold;">Fecha de Ingreso Propuesta:</td>
-            <td style="padding: 10px 0;"><t t-out="object.x_oferta_fecha_inicio or 'Por coordinar'"/></td>
-        </tr>
+    
     </table>
     
-    <t t-if="object.x_oferta_condiciones">
-        <h4 style="color: #495057; margin-bottom: 5px;">Términos y Condiciones Adicionales / Onboarding:</h4>
-        <div style="padding: 15px; background-color: #f8f9fa; border-left: 4px solid #875A7B; border-radius: 5px; font-size: 13px; white-space: pre-wrap; margin-bottom: 20px;">
-            <t t-out="object.x_oferta_condiciones"/>
-        </div>
-    </t>
+    <h3 style="color: #875A7B; margin-top: 20px;">📅 Instrucciones para Firma de Contrato y Primer Día</h3>
+    <p>Para formalizar tu ingreso, por favor asiste a nuestras oficinas en la fecha y hora descrita a continuación para realizar la firma de tu contrato y comenzar con tu proceso de inducción (Onboarding):</p>
     
-    <p>Por favor, responde a este correo para confirmar tu aceptación de la oferta y dar inicio formal a tu proceso de contratación e incorporación (Onboarding).</p>
+    <div style="padding: 15px; background-color: #f8f9fa; border-left: 4px solid #875A7B; border-radius: 5px; font-size: 14px; margin-bottom: 20px;">
+        <p style="margin: 0 0 10px 0;"><b>📅 Fecha de presentación / Ingreso:</b> <t t-out="object.x_oferta_fecha_inicio or 'Por coordinar con el reclutador'"/></p>
+        <p style="margin: 0 0 10px 0;"><b>🏢 Lugar:</b> <t t-out="object.x_oferta_ubicacion_firma or 'Oficinas Centrales'"/></p>
+        <p style="margin: 0 0 10px 0;"><b>📁 Documentos requeridos:</b> <t t-out="object.x_oferta_documentos_firma or 'Identificación oficial vigente y documentos de contratación.'"/></p>
+        <t t-if="object.x_oferta_condiciones">
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;"/>
+            <p style="margin: 0;"><b>Notas / Indicaciones Adicionales:</b></p>
+            <p style="margin: 5px 0 0 0; white-space: pre-wrap;"><t t-out="object.x_oferta_condiciones"/></p>
+        </t>
+    </div>
+    
+    <p>Por favor, responde a este correo para confirmar tu asistencia y formalizar tu aceptación de la oferta.</p>
     <p>¡Estamos muy emocionados de darte la bienvenida a nuestro equipo!</p>
     <p>Saludos cordiales,<br/>El equipo de Recursos Humanos</p>
 </div>

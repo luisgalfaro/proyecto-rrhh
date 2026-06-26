@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_hr_applicant_form_inherit_skills_ia" model="ir.ui.view">
+        <field name="name">hr.applicant.form.inherit.skills.ia</field>
+        <field name="model">hr.applicant</field>
+        <field name="inherit_id" ref="hr_recruitment_skills.hr_applicant_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Ocultar la pestaña nativa de Habilidades (Skills) ya que ha sido reemplazada por la IA -->
+            <xpath expr="//page[div[contains(@class, 'o_hr_skills_editable')]]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
     <record id="view_hr_applicant_form_inherit_ia" model="ir.ui.view">
         <field name="name">hr.applicant.form.inherit.ia</field>
         <field name="model">hr.applicant</field>
@@ -9,6 +21,7 @@
             <xpath expr="//header" position="inside">
                 <field name="x_is_new_stage" invisible="1"/>
                 <field name="x_is_finalist_stage" invisible="1"/>
+                <field name="x_is_contratacion_stage" invisible="1"/>
                 <button name="action_analizar_ia_manualmente" 
                         string="Analizar con IA" 
                         type="object" 
@@ -16,21 +29,27 @@
                         icon="fa-magic"
                         invisible="not x_is_new_stage"/>
                 <button name="action_send_interview_invitation" 
-                        string="Enviar Invitación Entrevista" 
+                        string="Enviar Correo" 
                         type="object" 
                         class="btn-secondary"
                         icon="fa-envelope"/>
-                <button name="action_seleccionar_ganador" 
-                        string="Generar Oferta de Contrato" 
+                <button name="action_avisar_seleccionado" 
+                        string="Finalista" 
                         type="object" 
-                        class="oe_highlight btn-success"
+                        class="oe_highlight btn-info"
                         icon="fa-trophy"
                         invisible="not x_is_finalist_stage"/>
+                <button name="action_seleccionar_ganador" 
+                        string="Enviar Oferta" 
+                        type="object" 
+                        class="oe_highlight btn-success"
+                        icon="fa-file-text"
+                        invisible="not x_is_contratacion_stage"/>
             </xpath>
             
             <!-- Insertar una nueva pestaña (notebook page) dedicada al análisis de la IA -->
             <xpath expr="//notebook" position="inside">
-                <page string="Propuesta y Contratación" name="propuesta_contratacion" invisible="not x_is_finalist_stage">
+                <page string="Propuesta y Contratación" name="propuesta_contratacion" invisible="not x_is_finalist_stage and not x_is_contratacion_stage">
                     <group>
                         <group string="Oferta Económica Formal">
                             <field name="x_oferta_salario"/>
@@ -38,8 +57,10 @@
                             <field name="x_oferta_bonos"/>
                             <field name="x_oferta_fecha_inicio"/>
                         </group>
-                        <group string="Información para Onboarding">
-                            <field name="x_oferta_condiciones" placeholder="Detalla aquí herramientas a entregar (Laptop, Accesos), inducción inicial y condiciones del período de prueba (3-6 meses)..." style="min-height: 120px;"/>
+                        <group string="Cita para Firma y Onboarding">
+                            <field name="x_oferta_ubicacion_firma"/>
+                            <field name="x_oferta_documentos_firma" style="min-height: 80px;"/>
+                            <field name="x_oferta_condiciones" placeholder="Detalla aquí herramientas a entregar (Laptop, Accesos), inducción inicial y condiciones del período de prueba (3-6 meses)..." style="min-height: 80px;"/>
                         </group>
                     </group>
                 </page>
@@ -137,4 +158,7 @@
             </xpath>
         </field>
     </record>
+
+    <!-- Reemplazar el nombre del menú principal de Reclutamiento a Selección en el Navbar -->
+    <menuitem id="hr_recruitment.menu_hr_recruitment_root" name="Selección"/>
 </odoo>

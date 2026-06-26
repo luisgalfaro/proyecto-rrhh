@@ -23,6 +23,7 @@ class HrApplicant(models.Model):
     x_ia_aprobado = fields.Boolean(string="Aprobado por IA", readonly=True, default=False)
     x_ia_score = fields.Float(string="Score de Coincidencia (%)", readonly=True)
     x_ia_analisis = fields.Text(string="Análisis de la IA", readonly=True)
+    x_examen_feedback = fields.Text(string="Retroalimentación del Examen", readonly=True)
     x_meeting_url = fields.Char(string="Enlace de Videollamada (Meet/Zoom)")
     
     # Campos de Puntuación Exacta (Matriz)
@@ -40,11 +41,15 @@ class HrApplicant(models.Model):
     x_oferta_salario = fields.Float(string="Salario Mensual Ofertado")
     x_oferta_moneda_id = fields.Many2one('res.currency', string="Moneda", default=lambda self: self.env.company.currency_id)
     x_oferta_bonos = fields.Char(string="Bonos y Beneficios Adicionales", placeholder="Ej. Seguro de Gastos Médicos, Bonos de Despensa")
-    x_oferta_fecha_inicio = fields.Date(string="Fecha de Ingreso Propuesta")
+    x_oferta_fecha_inicio = fields.Datetime(string="Fecha y Hora de Ingreso / Presentación")
+    x_oferta_fecha_firma = fields.Datetime(string="Fecha y Hora para Firmar Contrato (Obsoleto)")
+    x_oferta_ubicacion_firma = fields.Char(string="Lugar / Ubicación de Firma", default="Oficinas Centrales")
+    x_oferta_documentos_firma = fields.Text(string="Documentos a Presentar", default="Identificación oficial vigente, comprobante de domicilio y documentos de contratación solicitados por Recursos Humanos.")
     x_oferta_condiciones = fields.Text(string="Términos y Condiciones Adicionales")
     
     x_is_new_stage = fields.Boolean(compute='_compute_stage_flags', string='Es Etapa Nuevo')
     x_is_finalist_stage = fields.Boolean(compute='_compute_stage_flags', string='Es Etapa Finalista')
+    x_is_contratacion_stage = fields.Boolean(compute='_compute_stage_flags', string='Es Etapa Contratación')
 
     @api.depends('stage_id', 'stage_id.name')
     def _compute_stage_flags(self):
@@ -52,6 +57,7 @@ class HrApplicant(models.Model):
             stage_name = app.stage_id.name.lower() if app.stage_id else ''
             app.x_is_new_stage = 'nuevo' in stage_name or 'new' in stage_name or 'initial' in stage_name or 'inici' in stage_name
             app.x_is_finalist_stage = 'finalist' in stage_name or 'final' in stage_name
+            app.x_is_contratacion_stage = 'contrata' in stage_name or 'contract' in stage_name or 'hiring' in stage_name
 
     @api.depends('x_token_acceso')
     def _compute_url_antesala(self):
@@ -249,8 +255,32 @@ class HrApplicant(models.Model):
             }
         }
 
+    def action_avisar_seleccionado(self):
+        """Envía el aviso de que ha sido seleccionado como ganador antes de mandarle la propuesta salarial."""
+        for applicant in self:
+            stage = self.env['hr.recruitment.stage'].search(['|', ('name', 'ilike', 'Contrat'), ('name', 'ilike', 'Contract')], limit=1)
+            if stage:
+                applicant.stage_id = stage.id
+            
+            template = self.env.ref('hr_recruitment_ia.mail_template_applicant_ganador_aviso', raise_if_not_found=False)
+            if template:
+                template.send_mail(applicant.id, force_send=False)
+                
+            applicant.message_post(body="[Aviso Seleccionado] Se ha notificado al candidato que ganó la vacante y se le enviará la oferta laboral.")
+            
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Aviso Enviado',
+                'message': 'Se ha notificado al finalista que ha sido seleccionado.',
+                'sticky': False,
+                'type': 'success',
+            }
+        }
+
     def action_seleccionar_ganador(self):
-        """Mueve al candidato a Propuesta de Contrato y envía la oferta formal."""
+        """Mueve al candidato a Propuesta de Contrato y envía la oferta formal con citatorio."""
         for applicant in self:
             # Buscar etapa de propuesta de contrato o contrato
             stage = self.env['hr.recruitment.stage'].search(['|', ('name', 'ilike', 'Contrat'), ('name', 'ilike', 'Contract')], limit=1)
@@ -261,14 +291,14 @@ class HrApplicant(models.Model):
             if template:
                 template.send_mail(applicant.id, force_send=False)
                 
-            applicant.message_post(body="<b style='color:green;'>🏆 Candidato Seleccionado:</b> Se ha movido a Propuesta de Contrato y enviado la oferta formal.")
+            applicant.message_post(body="[Oferta y Citatorio] Se ha enviado la propuesta económica y citatorio para firma de contrato.")
             
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': 'Oferta Enviada',
-                'message': 'Se ha enviado la carta de oferta al candidato seleccionado.',
+                'title': 'Oferta y Citatorio Enviados',
+                'message': 'Se ha enviado la carta de oferta y el citatorio para firma de contrato.',
                 'sticky': False,
                 'type': 'success',
             }
@@ -281,7 +311,7 @@ class HrApplicant(models.Model):
             if template:
                 template.send_mail(applicant.id, force_send=False)
                 
-            applicant.message_post(body=f"<b style='color:#17a2b8;'>⭐ Archivo VIP en Talent Pool:</b> Finalista con {applicant.x_score_total:.1f}% de score transferido a reserva estratégica.")
+            applicant.message_post(body=f"Finalista con {applicant.x_score_total:.1f}% de score transferido a reserva estratégica.")
             applicant.write({
                 'active': False,
             })
@@ -351,14 +381,14 @@ class HrApplicant(models.Model):
         # Registrar puntajes SIEMPRE (tanto si aprueba como si reprueba)
         if is_technical:
             self.x_score_tecnico = score
-            # Agrupar las justificaciones de la IA para que aparezcan en el correo de feedback
+            # Agrupar las justificaciones de la IA para que aparezcan en el correo de feedback sin tocar x_ia_analisis
             ia_answers = self.x_ia_answer_ids.filtered(lambda a: a.score < a.max_score)
             if ia_answers:
                 feedback = "\n\n".join([f"Pregunta: {a.question}\nObservación: {a.justification}" for a in ia_answers])
-                self.x_ia_analisis = f"Observaciones de la evaluación técnica (Puntaje obtenido: {score}%):\n\n{feedback}"
+                self.x_examen_feedback = f"Observaciones de la evaluación técnica (Puntaje obtenido: {score}%):\n\n{feedback}"
         elif is_psycho:
             self.x_score_psicometrico = score
-            self.x_ia_analisis = f"El resultado de la evaluación psicométrica ({score}%) no alcanzó el perfil mínimo requerido para la vacante."
+            self.x_examen_feedback = f"El resultado de la evaluación psicométrica ({score}%) no alcanzó el perfil mínimo requerido para la vacante."
 
         # Leer el porcentaje mínimo configurado dentro de la propia encuesta de Odoo (por defecto 70 si no está configurado)
         passing_score = user_input.survey_id.scoring_success_min if user_input.survey_id.scoring_type != 'no_scoring' else 70.0
@@ -369,7 +399,7 @@ class HrApplicant(models.Model):
             reason = "Prueba Técnica" if is_technical else "Prueba Psicométrica"
             
             # Registrar en bitácora
-            self.message_post(body=f"<b style='color:red;'>Rechazo Automático:</b> No alcanzó el mínimo requerido de {passing_score}% en la {reason}. Obtuvo: {score}%")
+            self.message_post(body=f"[Rechazo Automático] No alcanzó el mínimo requerido de {passing_score}% en la {reason}. Obtuvo: {score}%")
             self.write({
                 'active': False,
                 'stage_id': stage_rechazado.id if stage_rechazado else self.stage_id.id,
@@ -381,7 +411,7 @@ class HrApplicant(models.Model):
                 template.send_mail(self.id, force_send=False)
         else:
             # APROBADO AUTOMÁTICO
-            self.message_post(body=f"<b style='color:green;'>Aprobado en Encuesta:</b> Obtuvo {score}%. Avanzando de etapa.")
+            self.message_post(body=f" Obtuvo {score}%. Avanzando de etapa.")
             
             if is_technical:
                 # Mover a Psicométrica
@@ -407,5 +437,5 @@ class TalentPoolAddApplicants(models.TransientModel):
                 template = self.env.ref('hr_recruitment_ia.mail_template_applicant_talent_pool', raise_if_not_found=False)
                 if template:
                     template.send_mail(applicant.id, force_send=False)
-                applicant.message_post(body=f"<b style='color:#17a2b8;'>⭐ Archivo VIP en Talent Pool:</b> Finalista con {applicant.x_score_total:.1f}% de score transferido a reserva estratégica y notificado por correo.")
+                applicant.message_post(body=f"[Archivo VIP en Talent Pool] Finalista con {applicant.x_score_total:.1f}% de score transferido a reserva estratégica y notificado por correo.")
         return talents

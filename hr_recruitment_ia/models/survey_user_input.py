@@ -7,6 +7,40 @@ _logger = logging.getLogger(__name__)
 class SurveyUserInput(models.Model):
     _inherit = 'survey.user_input'
 
+    def _compute_scoring_values(self):
+        super(SurveyUserInput, self)._compute_scoring_values()
+        for user_input in self:
+            if user_input.access_token:
+                token_candidato = user_input.access_token.rsplit('-', 1)[0]
+                applicant = self.env['hr.applicant'].sudo().search([('x_token_acceso', '=', token_candidato)], limit=1)
+                if not applicant:
+                    applicant = self.env['hr.applicant'].sudo().search([('x_token_acceso', '=', user_input.access_token)], limit=1)
+                
+                if applicant and applicant.x_ia_answer_ids:
+                    # Calcular el porcentaje real combinando preguntas cerradas nativas y las abiertas de la IA
+                    ia_answers = applicant.x_ia_answer_ids.filtered(lambda a: a.user_input_line_id in user_input.user_input_line_ids)
+                    puntos_ia_obtenidos = sum(ia_answers.mapped('score'))
+                    puntos_ia_maximos = sum(ia_answers.mapped('max_score'))
+                    
+                    closed_lines = user_input.user_input_line_ids.filtered(lambda l: l.question_id.question_type not in ('text_box', 'char_box'))
+                    native_score = sum(closed_lines.mapped('answer_score'))
+                    
+                    native_max = 0.0
+                    for q in user_input.survey_id.question_ids:
+                        if q.is_scored_question and q.question_type not in ('text_box', 'char_box'):
+                            if q.question_type == 'simple_choice':
+                                max_q = max(q.suggested_answer_ids.mapped('answer_score') or [0.0])
+                                native_max += max_q if max_q > 0 else 0
+                            elif q.question_type == 'multiple_choice':
+                                native_max += sum([s for s in q.suggested_answer_ids.mapped('answer_score') if s > 0])
+                            elif q.question_type in ('numerical_box', 'date', 'datetime'):
+                                native_max += q.answer_score
+                                
+                    total_obtenido = native_score + puntos_ia_obtenidos
+                    total_maximo = native_max + puntos_ia_maximos
+                    if total_maximo > 0:
+                        user_input.scoring_percentage = min((total_obtenido / total_maximo) * 100, 100.0)
+
     def write(self, vals):
         # Primero ejecutar la escritura normal
         res = super(SurveyUserInput, self).write(vals)
@@ -34,13 +68,13 @@ class SurveyUserInput(models.Model):
         try:
             import google.generativeai as genai
         except ImportError:
-            applicant.message_post(body="<b style='color:orange;'>Aviso IA:</b> No se pudo importar google.generativeai para evaluar preguntas abiertas.")
+            applicant.message_post(body="[Aviso IA] No se pudo importar google.generativeai para evaluar preguntas abiertas.")
             applicant._procesar_resultado_encuesta(user_input)
             return
             
         api_key = self.env['ir.config_parameter'].sudo().get_param('gemini.api_key')
         if not api_key:
-            applicant.message_post(body="<b style='color:orange;'>Aviso IA:</b> No se encontró la API Key de Gemini (gemini.api_key) para evaluar preguntas abiertas.")
+            applicant.message_post(body="[Aviso IA] No se encontró la API Key de Gemini (gemini.api_key) para evaluar preguntas abiertas.")
             applicant._procesar_resultado_encuesta(user_input)
             return
             
@@ -140,14 +174,14 @@ class SurveyUserInput(models.Model):
                             time.sleep(15)
                         else:
                             _logger.error(f"Error evaluando con Gemini: {str(e)}")
-                            applicant.message_post(body=f"<b style='color:red;'>Error Gemini evaluando '{pregunta}':</b> {str(e)}")
+                            applicant.message_post(body=f"[Error Gemini evaluando '{pregunta}'] {str(e)}")
                             break
                             
                 if not exito:
                     # Fallback de emergencia: Permitir calificación manual por parte del seleccionador
                     puntos = 0.0
-                    justificacion = "⚠️ PENDIENTE DE CALIFICACIÓN MANUAL: La IA no pudo evaluar esta respuesta por límite de cuota (429). Por favor, lea la respuesta del candidato y asigne el puntaje manualmente."
-                    applicant.message_post(body=f"<b style='color:red;'>🚨 Alerta de Encuesta ('{pregunta}'):</b> La evaluación automática por IA falló por cuota (429). El examen está pendiente de revisión y calificación manual por parte del seleccionador.")
+                    justificacion = "PENDIENTE DE CALIFICACIÓN MANUAL: La IA no pudo evaluar esta respuesta. Por favor, lea la respuesta del candidato y asigne el puntaje manualmente."
+                    applicant.message_post(body=f"[Alerta ('{pregunta}')] La evaluación automática por IA falló. El examen está pendiente de revisión y calificación manual por parte del seleccionador.")
 
                 # Crear registro detallado para la nueva pestaña (notebook) en el candidato (sin manchar el chatter)
                 self.env['hr.applicant.ia.answer'].sudo().create({
@@ -176,22 +210,19 @@ class SurveyUserInput(models.Model):
                 })
                     
         # Calcular puntaje final (Puntos Odoo Nativos + Puntos IA)
-        native_score = sum(user_input.user_input_line_ids.mapped('answer_score'))
-        native_percentage = user_input.scoring_percentage or 0.0
+        closed_lines = user_input.user_input_line_ids.filtered(lambda l: l.question_id.question_type not in ('text_box', 'char_box'))
+        native_score = sum(closed_lines.mapped('answer_score'))
         
-        if native_percentage > 0 and native_score > 0:
-            native_max = (native_score * 100) / native_percentage
-        else:
-            native_max = 0.0
-            for q in user_input.survey_id.question_ids:
-                if q.is_scored_question:
-                    if q.question_type == 'simple_choice':
-                        max_q = max(q.suggested_answer_ids.mapped('answer_score') or [0.0])
-                        native_max += max_q if max_q > 0 else 0
-                    elif q.question_type == 'multiple_choice':
-                        native_max += sum([s for s in q.suggested_answer_ids.mapped('answer_score') if s > 0])
-                    elif q.question_type in ('numerical_box', 'date', 'datetime'):
-                        native_max += q.answer_score
+        native_max = 0.0
+        for q in user_input.survey_id.question_ids:
+            if q.is_scored_question and q.question_type not in ('text_box', 'char_box'):
+                if q.question_type == 'simple_choice':
+                    max_q = max(q.suggested_answer_ids.mapped('answer_score') or [0.0])
+                    native_max += max_q if max_q > 0 else 0
+                elif q.question_type == 'multiple_choice':
+                    native_max += sum([s for s in q.suggested_answer_ids.mapped('answer_score') if s > 0])
+                elif q.question_type in ('numerical_box', 'date', 'datetime'):
+                    native_max += q.answer_score
 
         total_obtenido = native_score + puntos_ia_obtenidos
         total_maximo = native_max + puntos_ia_maximos
@@ -199,7 +230,7 @@ class SurveyUserInput(models.Model):
         if total_maximo > 0:
             final_percentage = (total_obtenido / total_maximo) * 100
         else:
-            final_percentage = native_percentage
+            final_percentage = user_input.scoring_percentage or 0.0
             
         final_percentage = min(final_percentage, 100.0)
         
@@ -245,6 +276,6 @@ class SurveyUserInput(models.Model):
         if final_percentage >= passing_score and not applicant.active:
             # Reabrir al candidato y devolverlo a la etapa activa
             applicant.write({'active': True})
-            applicant.message_post(body=f"<b style='color:green;'>⭐ Aprobación por Calificación Manual:</b> El seleccionador actualizó la nota a {final_percentage:.1f}% (Mínimo {passing_score}%). Candidato reactivado con éxito.")
+            applicant.message_post(body=f"[Aprobación por Calificación Manual] El seleccionador actualizó la nota a {final_percentage:.1f}% (Mínimo {passing_score}%). Candidato reactivado con éxito.")
             
         applicant._procesar_resultado_encuesta(self, score=final_percentage)

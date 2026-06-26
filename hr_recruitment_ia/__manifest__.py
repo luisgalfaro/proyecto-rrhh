@@ -10,7 +10,7 @@
     """,
     'category': 'Human Resources/Recruitment',
     'author': 'Antigravity',
-    'depends': ['hr_recruitment', 'website', 'survey'],
+    'depends': ['hr_recruitment', 'website', 'survey', 'hr_recruitment_skills'],
     'data': [
         'security/ir.model.access.csv',
         'data/mail_template_data.xml',
